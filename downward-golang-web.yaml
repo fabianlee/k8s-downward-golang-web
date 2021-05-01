@@ -76,10 +76,10 @@ spec:
         resources:
           requests:
             memory: "4Mi"
-            cpu: "25m"
+            cpu: "500m" # half a vcpu
           limits:
-            memory: "8Mi"
-            cpu: "50m"
+            memory: "16Mi"
+            cpu: "1000m" # whole vcpu
 
         # mount for Downward files
         volumeMounts:

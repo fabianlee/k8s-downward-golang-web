@@ -23,7 +23,7 @@ clean:
 
 ## runs container in foreground, testing a couple of override values
 docker-test-fg:
-	$(DOCKERCMD) run -it -p $(WEBPORT) -e APP_CONTEXT=/golang-web/ -e MY_NODE_NAME=node1 --rm $(OPV)
+	$(DOCKERCMD) run -it -p $(WEBPORT) -e APP_CONTEXT=/downward-golang/ -e MY_NODE_NAME=node1 --rm $(OPV)
 
 ## runs container in foreground, override entrypoint to use use shell
 docker-test-cli:

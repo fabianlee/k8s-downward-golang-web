@@ -72,6 +72,19 @@ spec:
       - name: downward-golang-web
         image: fabianlee/k8s-downward-golang-web:1.0.0
 
+#        securityContext:
+#          allowPrivilegeEscalation: true
+#          capabilities:
+#            add:
+#              - NET_ADMIN
+#              - SYS_ADMIN
+#              - MKNOD
+#              - DAC_OVERRIDE
+#              - SETFCAP
+#              - FOWNER
+#              - SYS_RAWIO
+#              - SETPCAP
+
         # resource limits
         resources:
           requests:
@@ -90,7 +103,7 @@ spec:
 
         # 404 if request not to this context
         - name: APP_CONTEXT
-          value: "/golang-web/"
+          value: "/downward-golang/"
         # listening port
         - name: PORT
           value: "8080"

@@ -15,8 +15,8 @@ import (
     "os"
     "sync"
     "io/ioutil"
-    "path"
     "path/filepath"
+    "strings"
 )
 
 // built into binary using ldflags
@@ -42,10 +42,16 @@ func incrementCounter() {
 func FilePathWalkDir(root string) ([]string, error) {
  var files []string
  err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-  if !info.IsDir() {
-   files = append(files, path)
-  }
-  return nil
+   // skip directories and files whose name starts with ".."
+   if info.IsDir() || strings.HasPrefix(info.Name(),"..") {
+     return nil
+   }
+   // Downward API files look like symbolic links
+   if (info.Mode() & os.ModeSymlink)>0 {
+     //log.Printf("found linked file %s",path)
+     files = append(files, path )
+   }
+   return nil
  })
  return files, err
 }
@@ -62,16 +68,16 @@ func StartWebServer() {
     // show Downward API files
     _, derr := os.Stat("/etc/podinfo/")
     if os.IsNotExist(derr) {
-      log.Printf("/etc/podinfo/ does not exist")
+      log.Printf("/etc/podinfo/ does not exist %v",derr)
     }else {
-	    myfiles, err := FilePathWalkDir("/etc/podinfo/")
-	    if myfiles != nil && err != nil {
-	      for _, file := range myfiles {
-		log.Printf("FILE %s",file)
-	      }
-	    }else {
-	      log.Printf("problem with FilePathWalkDir %s",err)
-	    }
+      myfiles, err := FilePathWalkDir("/etc/podinfo/")
+      if err != nil {
+        log.Printf("problem with FilePathWalkDir %v",err)
+      }else {
+        for _, file := range myfiles {
+          log.Printf("FILE %s",file)
+        } // each file
+      }
     }
 
     // request handlers
@@ -116,25 +122,27 @@ func handleApp(w http.ResponseWriter, r *http.Request) {
       fmt.Fprintf(w, "ENV %s = %s\n", keyName, getenv(keyName,"empty") )
     }
 
-    // show Downward API file contents
+    // show Downward API files
     _, derr := os.Stat("/etc/podinfo/")
     if os.IsNotExist(derr) {
-      log.Printf("/etc/podinfo/ does not exist")
+      log.Printf("/etc/podinfo/ does not exist %v",derr)
     }else {
-	    files, err := ioutil.ReadDir("/etc/podinfo/")
-	    if err != nil {
-	      for _, file := range files {
-		log.Printf("Going to read file %s",file.Name())
-		data, ferr := ioutil.ReadFile(file.Name())
-		if ferr != nil {
-		  fmt.Fprintf(w,"FILE %s = %s\n",path.Base(file.Name()),data)
-		} else {
-		  log.Printf("error reading file %v",err)
-		}
-	      }
-	    }else {
-	      fmt.Fprintf(w,"Did not find any files in /etc/podinfo/")
-	    }
+      myfiles, err := FilePathWalkDir("/etc/podinfo/")
+      if err != nil {
+        log.Printf("problem with FilePathWalkDir %v",err)
+      }else {
+        for _, file := range myfiles {
+
+          data, ferr := ioutil.ReadFile(file)
+          if ferr == nil {
+            fmt.Fprintf(w,"FILE %s = %s\n",file,data)
+          } else {
+            log.Printf("error reading file %v",ferr)
+          }
+
+        } // each file
+
+      }
     }
 
     incrementCounter()

@@ -52,8 +52,8 @@ docker-push:
 
 ## pushes to kubernetes cluster
 k8s-apply:
-	sed -e 's/1.0.0/$(VERSION)/' golang-hello-world-web.yaml | kubectl apply -f -
+	sed -e 's/1.0.0/$(VERSION)/' downward-golang-web.yaml | kubectl apply -f -
 
 k8s-delete:
-	kubectl delete -f golang-hello-world-web.yaml
+	kubectl delete -f downward-golang-web.yaml
 

@@ -1,0 +1,178 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: downward-golang-web
+  # allow for override: kubectl -n <ns> apply ...
+  #namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: downward-golang-web
+  # kubectl scale --replicas=x deployment/downward-golang-web
+  replicas: 1
+  template:
+    metadata:
+
+      labels:
+        app: downward-golang-web
+        foo: bar
+
+      annotations:
+        sidecar.istio.io/inject: "false"
+        author: fabian lee
+        blog: https://fabianlee.org
+
+    spec:
+
+      # scaled up deployment will go to different nodes
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - downward-golang-web
+            topologyKey: "kubernetes.io/hostname"
+
+      volumes:
+        - name: podinfo
+          # these are *only* available through env vars, and not volume mount
+          # status.podIP, spec.serviceAccountName, spec.nodeName, status.hostIP
+          downwardAPI:
+            items:
+              # pulling pod fields, fieldRef
+              - path: "name"
+                fieldRef:
+                  fieldPath: metadata.name
+              - path: "namespace"
+                fieldRef:
+                  fieldPath: metadata.namespace
+              - path: "labels"
+                fieldRef:
+                  fieldPath: metadata.labels
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
+              # pulling container fields, resourceFieldRef
+              - path: "mem_limit"
+                resourceFieldRef:
+                  containerName: downward-golang-web
+                  resource: limits.memory
+                  divisor: 1Mi
+              - path: "mem_request"
+                resourceFieldRef:
+                  containerName: downward-golang-web
+                  resource: requests.memory
+                  divisor: 1Mi
+
+      containers:
+      - name: downward-golang-web
+        image: fabianlee/k8s-downward-golang-web:1.0.0
+
+        # resource limits
+        resources:
+          requests:
+            memory: "4Mi"
+            cpu: "25m"
+          limits:
+            memory: "8Mi"
+            cpu: "50m"
+
+        # mount for Downward files
+        volumeMounts:
+          - name: podinfo
+            mountPath: /etc/podinfo
+
+        env:
+
+        # 404 if request not to this context
+        - name: APP_CONTEXT
+          value: "/golang-web/"
+        # listening port
+        - name: PORT
+          value: "8080"
+
+        # Downward API support - inserts these into container as env variables
+        # pulling pod fields, fieldRef
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MY_POD_SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+
+        # can only pull single keys out of annotations and labels
+        # use volume mount if you want all
+        - name: MY_POD_LABEL_APP
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app']
+        - name: MY_POD_ANNOTATION_AUTHOR
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['author']
+
+        # pulling container fields, resourceFieldRef
+        - name: MY_POD_MEM_LIMIT_MB
+          valueFrom:
+            resourceFieldRef:
+              containerName: downward-golang-web
+              resource: limits.memory
+              divisor: 1Mi
+        - name: MY_POD_MEM_REQUEST_MB
+          valueFrom:
+            resourceFieldRef:
+              containerName: downward-golang-web
+              resource: requests.memory
+              divisor: 1Mi
+
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
+
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
+
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: downward-golang-web-service
+  #namespace: default
+  labels:
+    app: downward-golang-web
+spec:
+  ports:
+  # port=available to other containers
+  - port: 8080
+    name: http
+    # targetPort=exposed from inside container
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: downward-golang-web

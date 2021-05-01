@@ -21,3 +21,5 @@ Image is based on busybox:1.32.1-glibc, is about ~11Mb because it takes advantag
 * docker-build (builds image)
 * docker-run-fg (runs container in foreground, ctrl-C to exit)
 * docker-run-bg (runs container in background)
+* k8s-apply (applies deployment to kubernetes cluster)
+* k8s-delete (removes deployment on kubernetes cluster)
